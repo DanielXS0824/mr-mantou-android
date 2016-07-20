@@ -1,6 +1,6 @@
 <!--
   ~ Mr.Mantou - On the importance of taste
-  ~ Copyright (C) 2015  XiNGRZ <xxx@oxo.ooo>
+  ~ Copyright (C) 2015-2016  XiNGRZ <xxx@oxo.ooo>
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License as published by
@@ -21,59 +21,46 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:context=".MainActivity">
 
-    <android.support.design.widget.CoordinatorLayout
+    <ooo.oxo.mr.widget.InsetsCoordinatorLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:fitsSystemWindows="true">
 
-        <View
+        <ooo.oxo.mr.widget.InsetsAppBarLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fitsSystemWindows="true"
-            android:visibility="invisible" />
+            android:layout_height="wrap_content"
+            tools:paddingTop="25dp">
+
+            <ooo.oxo.mr.widget.InsetsToolbar
+                android:id="@+id/toolbar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fitsSystemWindows="true"
+                app:layout_scrollFlags="scroll|enterAlways|snap"
+                app:title="@string/app_name" />
+
+        </ooo.oxo.mr.widget.InsetsAppBarLayout>
 
         <ooo.oxo.mr.widget.OhSwipeRefreshLayout
             android:id="@+id/refresher"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            app:layout_behavior="@string/appbar_scrolling_view_behavior">
+            app:layout_behavior="ooo.oxo.mr.widget.InsetsScrollingViewBehavior">
 
-            <android.support.v7.widget.RecyclerView
+            <ooo.oxo.mr.widget.InsetsRecyclerView
                 android:id="@+id/content"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
+                android:fitsSystemWindows="true"
                 android:orientation="vertical"
-                android:paddingBottom="50dp"
-                android:paddingLeft="2dp"
-                android:paddingRight="2dp"
-                android:paddingTop="2dp"
-                android:scrollbarStyle="outsideOverlay"
-                android:scrollbars="vertical"
                 app:layoutManager="StaggeredGridLayoutManager"
-                app:spanCount="2"
+                app:padding="2dp"
+                app:spanCount="@integer/span_count"
                 tools:padding="8dp" />
 
         </ooo.oxo.mr.widget.OhSwipeRefreshLayout>
 
-        <android.support.design.widget.AppBarLayout
-            android:id="@+id/app_bar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <ooo.oxo.mr.widget.StatusBarHolderView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:layout_scrollFlags="scroll|enterAlways" />
-
-            <android.support.v7.widget.Toolbar
-                android:id="@+id/toolbar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:layout_scrollFlags="scroll|enterAlways"
-                app:title="@string/app_name" />
-
-        </android.support.design.widget.AppBarLayout>
-
-    </android.support.design.widget.CoordinatorLayout>
+    </ooo.oxo.mr.widget.InsetsCoordinatorLayout>
 
 </layout>

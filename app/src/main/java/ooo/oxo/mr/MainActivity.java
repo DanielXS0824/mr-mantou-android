@@ -1,6 +1,6 @@
 /*
  * Mr.Mantou - On the importance of taste
- * Copyright (C) 2015  XiNGRZ <xxx@oxo.ooo>
+ * Copyright (C) 2015-2016  XiNGRZ <xxx@oxo.ooo>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,34 +21,32 @@ package ooo.oxo.mr;
 import android.content.Intent;
 import android.databinding.DataBindingUtil;
 import android.databinding.ObservableArrayList;
-import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.ActivityOptionsCompat;
 import android.support.v4.app.SharedElementCallback;
-import android.support.v7.app.AlertDialog;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewTreeObserver;
-import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.MemoryCategory;
 import com.jakewharton.rxbinding.support.v4.widget.RxSwipeRefreshLayout;
 import com.trello.rxlifecycle.components.support.RxAppCompatActivity;
+import com.umeng.analytics.MobclickAgent;
 
 import java.util.List;
 import java.util.Map;
 
-import ooo.oxo.mr.api.ImageApi;
-import ooo.oxo.mr.api.VersionApi;
 import ooo.oxo.mr.databinding.MainActivityBinding;
 import ooo.oxo.mr.model.Image;
-import ooo.oxo.mr.model.Version;
-import ooo.oxo.mr.net.QiniuImageQueryBuilder;
-import ooo.oxo.mr.rx.RxEndlessRecyclerView;
+import ooo.oxo.mr.rx.RxAVQuery;
 import ooo.oxo.mr.rx.RxList;
-import ooo.oxo.mr.rx.RxNetworking;
+import ooo.oxo.mr.util.ToastUtil;
+import ooo.oxo.mr.util.UpdateUtil;
+import ooo.oxo.mr.view.MiuiStatusBarCompat;
 import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
@@ -61,18 +59,13 @@ public class MainActivity extends RxAppCompatActivity implements MainAdapter.Lis
 
     private MainActivityBinding binding;
 
-    private ImageApi imageApi;
-    private VersionApi versionApi;
-
-    private Observable<List<Image>> observableLoadLatest;
-    private Observable<List<Image>> observableLoadBefore;
-    private Observable<Version> observableCheckUpdate;
-
     private Bundle reenterState;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        MiuiStatusBarCompat.enableLightStatusBar(getWindow());
 
         binding = DataBindingUtil.setContentView(this, R.layout.main_activity);
 
@@ -80,15 +73,8 @@ public class MainActivity extends RxAppCompatActivity implements MainAdapter.Lis
 
         images = MrSharedState.getInstance().getImages();
 
-        binding.content.setAdapter(new MainAdapter(this, images, this));
-
-        MrApplication application = MrApplication.from(this);
-
-        imageApi = application.createApi(ImageApi.class);
-        versionApi = application.createApi(VersionApi.class);
-
-        createObservables();
-        attachObservables();
+        Glide.get(this).setMemoryCategory(MemoryCategory.HIGH);
+        binding.content.setAdapter(new MainAdapter(this, images, Glide.with(this), this));
 
         setExitSharedElementCallback(new SharedElementCallback() {
             @Override
@@ -104,70 +90,45 @@ public class MainActivity extends RxAppCompatActivity implements MainAdapter.Lis
                     sharedElements.clear();
 
                     if (holder != null && holder.binding != null) {
-                        sharedElements.put(String.format("%s.image", image.id), holder.binding.image);
+                        sharedElements.put(String.format("%s.image", image.getObjectId()), holder.binding.image);
                     }
 
                     reenterState = null;
                 }
             }
         });
-    }
 
-    private void createObservables() {
-        Observable.Transformer<List<Image>, List<Image>> networkingIndicator =
-                RxNetworking.bindRefreshing(binding.refresher);
-
-        observableLoadLatest = Observable
-                .defer(() -> images.isEmpty()
-                        ? imageApi.latest(null)
-                        : imageApi.since(null, images.get(0).getUTCCreatedAt()))
-                .doOnUnsubscribe(() -> Log.d("RxJava", "unsubscribe load latest"))
-                .map(images -> {
-                    // for a strange bug of pg sql
-                    if (!images.isEmpty() && images.get(images.size() - 1).equals(images.get(0))) {
-                        images.remove(images.size() - 1);
-                    }
-
-                    return images;
-                })
-                .subscribeOn(Schedulers.io())
+        Observable<List<Image>> load = Observable.just(images)
+                .doOnSubscribe(() -> binding.refresher.setRefreshing(true))
+                .doOnCompleted(() -> binding.refresher.setRefreshing(false))
+                .map(whatever -> images.isEmpty() ? Image.all() : Image.since(images.get(0)))
+                .observeOn(Schedulers.io())
+                .flatMap(RxAVQuery::find)
                 .observeOn(AndroidSchedulers.mainThread())
-                .compose(networkingIndicator);
-
-        observableLoadBefore = Observable
-                .defer(() -> imageApi.before(null, images.get(images.size() - 1).getUTCCreatedAt()))
-                .doOnUnsubscribe(() -> Log.d("RxJava", "unsubscribe load before"))
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .compose(networkingIndicator);
-
-        observableCheckUpdate = versionApi.check()
-                .doOnUnsubscribe(() -> Log.d("RxJava", "unsubscribe check update"))
-                .filter(version -> version.versionCode > BuildConfig.VERSION_CODE)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread());
-    }
-
-    private void attachObservables() {
-        RxEndlessRecyclerView.reachesEnd(binding.content)
-                .doOnUnsubscribe(() -> Log.d("RxJava", "unsubscribe recycler view"))
-                .flatMap(avoid -> observableLoadBefore)
-                .compose(bindToLifecycle())
-                .subscribe(RxList.appendTo(images), this::showError);
+                .doOnNext(RxList.prependTo(images));
 
         RxSwipeRefreshLayout.refreshes(binding.refresher)
-                .doOnUnsubscribe(() -> Log.d("RxJava", "unsubscribe swipe refresh layout"))
-                .flatMap(avoid -> observableLoadLatest)
                 .compose(bindToLifecycle())
-                .subscribe(RxList.prependTo(images), this::showError);
+                .flatMap(whatever -> load)
+                .retry((count, tr) -> {
+                    Log.e(TAG, "An error occurred while fetching images", tr);
+                    ToastUtil.shorts(this, tr.getMessage());
+                    binding.refresher.setRefreshing(false);
+                    return true;
+                })
+                .filter(loaded -> !loaded.isEmpty())
+                .subscribe(loaded -> binding.content.smoothScrollToPosition(0));
 
-        observableLoadLatest
-                .compose(bindToLifecycle())
-                .subscribe(RxList.appendTo(images), this::showError);
+        load.compose(bindToLifecycle())
+                .onErrorReturn(tr -> {
+                    Log.e(TAG, "An error occurred while fetching images", tr);
+                    ToastUtil.shorts(this, tr.getMessage());
+                    binding.refresher.setRefreshing(false);
+                    return null;
+                })
+                .subscribe();
 
-        observableCheckUpdate
-                .compose(bindToLifecycle())
-                .subscribe(this::promptUpdate, error -> Log.e(TAG, "fail to check update", error));
+        UpdateUtil.checkForUpdate(version -> UpdateUtil.promptUpdate(this, version));
     }
 
     @Override
@@ -176,35 +137,35 @@ public class MainActivity extends RxAppCompatActivity implements MainAdapter.Lis
         binding.content.setAdapter(null);
     }
 
-    private void showError(Throwable error) {
-        Log.e(TAG, "error", error);
-        Toast.makeText(this, error.getMessage(), Toast.LENGTH_SHORT).show();
+    @Override
+    protected void onResume() {
+        super.onResume();
+        MobclickAgent.onResume(this);
     }
 
-    private void promptUpdate(Version version) {
-        new AlertDialog.Builder(this)
-                .setTitle(getString(R.string.update_available, version.versionName))
-                .setMessage(TextUtils.isEmpty(version.changelog) ? null : version.changelog)
-                .setNegativeButton(R.string.update_cancel, null)
-                .setPositiveButton(R.string.update_confirm, (dialog, which) -> {
-                    Intent intent = new Intent(Intent.ACTION_VIEW);
-                    intent.setData(Uri.parse(version.url));
-                    startActivity(intent);
-                })
-                .show();
+    @Override
+    protected void onPause() {
+        super.onPause();
+        MobclickAgent.onPause(this);
     }
 
     @Override
     public void onImageClick(MainAdapter.ViewHolder holder) {
-        Image image = images.get(holder.getAdapterPosition());
+        final Image image = images.get(holder.getLayoutPosition());
 
-        Intent intent = new Intent(this, ViewerActivity.class);
+        final Intent intent = new Intent(this, ViewerActivity.class);
         intent.putExtra("index", holder.getAdapterPosition());
-        intent.putExtra("thumbnail", QiniuImageQueryBuilder.build(
-                image.url, holder.binding.image.getWidth()));
+        intent.putExtra("thumbnail", image.getUrl(holder.binding.image.getWidth()));
 
-        ActivityOptionsCompat options = ActivityOptionsCompat.makeSceneTransitionAnimation(
-                this, holder.binding.image, String.format("%s.image", image.id));
+        final ActivityOptionsCompat options;
+
+        if (Build.VERSION.SDK_INT >= 21) {
+            options = ActivityOptionsCompat.makeSceneTransitionAnimation(
+                    this, holder.binding.image, String.format("%s.image", image.getObjectId()));
+        } else {
+            options = ActivityOptionsCompat.makeScaleUpAnimation(
+                    holder.itemView, 0, 0, holder.itemView.getWidth(), holder.itemView.getHeight());
+        }
 
         startActivity(intent, options.toBundle());
     }
@@ -217,7 +178,7 @@ public class MainActivity extends RxAppCompatActivity implements MainAdapter.Lis
 
         reenterState = new Bundle(data.getExtras());
 
-        binding.content.smoothScrollToPosition(reenterState.getInt("index", 0));
+        binding.content.scrollToPosition(reenterState.getInt("index", 0));
         binding.content.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
             @Override
             public boolean onPreDraw() {

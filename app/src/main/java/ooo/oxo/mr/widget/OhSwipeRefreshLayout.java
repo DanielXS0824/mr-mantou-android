@@ -1,6 +1,6 @@
 /*
  * Mr.Mantou - On the importance of taste
- * Copyright (C) 2015  XiNGRZ <xxx@oxo.ooo>
+ * Copyright (C) 2015-2016  XiNGRZ <xxx@oxo.ooo>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,13 +19,12 @@
 package ooo.oxo.mr.widget;
 
 import android.content.Context;
-import android.support.v4.widget.SwipeRefreshLayout;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 
 import ooo.oxo.mr.R;
 
-public class OhSwipeRefreshLayout extends SwipeRefreshLayout {
+public class OhSwipeRefreshLayout extends InsetsSwipeRefreshLayout {
 
     public OhSwipeRefreshLayout(Context context) {
         this(context, null);

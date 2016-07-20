@@ -1,6 +1,6 @@
 /*
  * Mr.Mantou - On the importance of taste
- * Copyright (C) 2015  XiNGRZ <xxx@oxo.ooo>
+ * Copyright (C) 2015-2016  XiNGRZ <xxx@oxo.ooo>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,8 +18,6 @@
 
 package ooo.oxo.mr;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
 import android.os.Build;
 import android.os.Bundle;
@@ -51,6 +49,8 @@ public class ViewerFragment extends RxBindingFragment<ViewerFragmentBinding> {
 
     private boolean hasSharedElementTransition = false;
 
+    private boolean isTransitionExecuted = false;
+
     private View sharedElement;
 
     public ViewerFragment() {
@@ -59,6 +59,7 @@ public class ViewerFragment extends RxBindingFragment<ViewerFragmentBinding> {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         image = getArguments().getParcelable("image");
         thumbnail = getArguments().getString("thumbnail");
 
@@ -83,7 +84,17 @@ public class ViewerFragment extends RxBindingFragment<ViewerFragmentBinding> {
 
         sharedElement = binding.thumbnail;
 
+        if (savedInstanceState != null) {
+            isTransitionExecuted = savedInstanceState.getBoolean("transition_executed", false);
+        }
+
         loadImage();
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean("transition_executed", isTransitionExecuted);
+        super.onSaveInstanceState(outState);
     }
 
     View getSharedElement() {
@@ -98,7 +109,8 @@ public class ViewerFragment extends RxBindingFragment<ViewerFragmentBinding> {
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     private void loadImage() {
-        if (hasSharedElementTransition) {
+        if (hasSharedElementTransition && !isTransitionExecuted) {
+            isTransitionExecuted = true;
             loadThumbnail();
             EnterTransitionCompat.addListener(getActivity().getWindow(), new SimpleTransitionListener() {
                 @Override
@@ -126,7 +138,7 @@ public class ViewerFragment extends RxBindingFragment<ViewerFragmentBinding> {
     }
 
     private void loadFullImage() {
-        Glide.with(this).load(image.url)
+        Glide.with(this).load(image.getUrl())
                 .diskCacheStrategy(DiskCacheStrategy.SOURCE)
                 .crossFade(0)
                 .override(Target.SIZE_ORIGINAL, Target.SIZE_ORIGINAL)
@@ -141,12 +153,7 @@ public class ViewerFragment extends RxBindingFragment<ViewerFragmentBinding> {
     }
 
     private void fadeInFullImage() {
-        binding.image.animate().alpha(1).setListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                binding.thumbnail.setVisibility(View.GONE);
-            }
-        }).start();
+        binding.fade.setDisplayedChild(1);
     }
 
 }

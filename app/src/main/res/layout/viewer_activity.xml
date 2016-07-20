@@ -1,6 +1,6 @@
 <!--
   ~ Mr.Mantou - On the importance of taste
-  ~ Copyright (C) 2015  XiNGRZ <xxx@oxo.ooo>
+  ~ Copyright (C) 2015-2016  XiNGRZ <xxx@oxo.ooo>
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License as published by
@@ -37,17 +37,17 @@
 
         </ooo.oxo.library.widget.PullBackLayout>
 
-        <ooo.oxo.mr.widget.OhToolbar
+        <ooo.oxo.mr.widget.InsetsToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:alpha="0"
             android:background="@drawable/viewer_header"
             android:fitsSystemWindows="true"
             android:paddingBottom="24dp"
+            android:visibility="invisible"
             app:navigationIcon="?homeAsUpIndicator"
-            tools:alpha="1"
-            tools:paddingTop="25dp" />
+            tools:paddingTop="25dp"
+            tools:visibility="visible" />
 
     </FrameLayout>
 

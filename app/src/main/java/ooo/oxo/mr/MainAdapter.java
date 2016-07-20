@@ -1,6 +1,6 @@
 /*
  * Mr.Mantou - On the importance of taste
- * Copyright (C) 2015  XiNGRZ <xxx@oxo.ooo>
+ * Copyright (C) 2015-2016  XiNGRZ <xxx@oxo.ooo>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,17 +22,25 @@ import android.content.Context;
 import android.databinding.ObservableList;
 import android.view.ViewGroup;
 
+import com.bumptech.glide.RequestManager;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+
+import ooo.oxo.library.databinding.support.widget.BindingRecyclerView;
 import ooo.oxo.mr.databinding.MainGridItemBinding;
 import ooo.oxo.mr.model.Image;
-import ooo.oxo.mr.widget.BindingRecyclerView;
 
 public class MainAdapter extends BindingRecyclerView.ListAdapter<Image, MainAdapter.ViewHolder> {
 
+    private final RequestManager requestManager;
     private final Listener listener;
 
-    public MainAdapter(Context context, ObservableList<Image> data, Listener listener) {
+    public MainAdapter(Context context, ObservableList<Image> data, RequestManager requestManager,
+                       Listener listener) {
         super(context, data);
+
+        this.requestManager = requestManager;
         this.listener = listener;
+
         setHasStableIds(true);
     }
 
@@ -43,23 +51,28 @@ public class MainAdapter extends BindingRecyclerView.ListAdapter<Image, MainAdap
 
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
-        Image image = data.get(position);
+        final Image image = data.get(position);
+
         holder.binding.setImage(image);
 
         // execute the binding immediately to ensure the original size of RatioImageView is set
         // before layout
         holder.binding.executePendingBindings();
+
+        requestManager.load(image.getFile())
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .into(holder.binding.image);
     }
 
     @Override
     public int getItemViewType(int position) {
         Image image = data.get(position);
-        return Math.round((float) image.meta.width / (float) image.meta.height * 10f);
+        return Math.round((float) image.getWidth() / (float) image.getHeight() * 10f);
     }
 
     @Override
     public long getItemId(int position) {
-        return data.get(position).id.hashCode();
+        return data.get(position).getObjectId().hashCode();
     }
 
     public interface Listener {
